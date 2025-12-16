@@ -4,9 +4,9 @@ Autonomous Warehouse Perception System
 A hybrid pipeline integrating Meta SAM 2 (Vision) with OpenCV (Logic) 
 and SQLite (Memory) to detect object fragmentation events.
 
-Scenario: "The Big Bang" - Detecting a single object exploding into 4 independent shards. 1-->4
+Scenario: "The Big Bang" - Detecting a single object exploding into 4 independent shards.
 
-Author: Alafyez Ahmad
+Author: Alfayez Ahmad
 Date: December 2025
 """
 
@@ -15,6 +15,7 @@ import sys
 import cv2
 import numpy as np
 import sqlite3
+import pandas as pd # Added for reporting
 import torch
 from datetime import datetime
 from PIL import Image
@@ -121,13 +122,13 @@ def run_pipeline():
     frame_dir = generate_synthetic_data(CONFIG["project_dir"])
     conn = init_database()
     
-    # 2. Download Weights (if missing)
+    # 2. Download Weights
     if not os.path.exists(CONFIG["model_weight"]):
-        print(" Downloading SAM 2 weights...")
+        print("⬇️ Downloading SAM 2 weights...")
         os.system(f"wget -q https://dl.fbaipublicfiles.com/segment_anything_2/072824/{CONFIG['model_weight']}")
 
     # 3. Load SAM 2
-    print(f"  Loading Model on {CONFIG['device']}...")
+    print(f"⚙️  Loading Model on {CONFIG['device']}...")
     predictor = build_sam2_video_predictor(CONFIG["model_cfg"], CONFIG["model_weight"], device=CONFIG["device"])
     inference_state = predictor.init_state(video_path=frame_dir)
 
@@ -143,9 +144,8 @@ def run_pipeline():
     h, w = cv2.imread(f"{frame_dir}/{frames[0]}").shape[:2]
     out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (w, h))
 
-    # Visual Config
     colors = [(0, 255, 0), (0, 255, 255), (0, 0, 255), (255, 0, 255), (255, 165, 0)]
-    kernel = np.ones((5,5), np.uint8) # Erosion Kernel
+    kernel = np.ones((5,5), np.uint8)
 
     for idx, ids, logits in predictor.propagate_in_video(inference_state):
         frame = cv2.imread(f"{frame_dir}/{frames[idx]}")
@@ -156,22 +156,18 @@ def run_pipeline():
         if len(logits) > 0:
             mask_pred = (logits[0] > 0.0).cpu().numpy().squeeze().astype(np.uint8)
             
-            # --- LOGIC: ERODE & COUNT ---
+            # --- LOGIC ---
             eroded = cv2.erode(mask_pred, kernel, iterations=3)
             num_labels, labels = cv2.connectedComponents(eroded)
-            
-            # Count valid shards (ignore noise < 50px)
             shards = sum(1 for i in range(1, num_labels) if np.sum(labels == i) > 50)
             
             if shards > 1: status = "FRAGMENTED"
 
             # --- VISUALIZATION ---
-            # Draw shards with different colors (Tubelet Style)
             found_parts = 0
             for i in range(1, num_labels):
                 if np.sum(labels == i) < 50: continue
                 found_parts += 1
-                
                 c = colors[(found_parts - 1) % 5]
                 overlay = np.zeros_like(frame)
                 overlay[labels == i] = c
@@ -184,22 +180,57 @@ def run_pipeline():
                     cv2.putText(frame, f"1.{found_parts}", (cX-15, cY+5), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
 
-            # Dashboard (Bottom Left)
+            # Dashboard
             cv2.rectangle(frame, (10, h-80), (280, h-10), (0,0,0), -1)
             color = (0, 255, 0) if shards <= 1 else (0, 0, 255)
             cv2.putText(frame, f"STATUS: {status}", (20, h-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
             cv2.putText(frame, f"TRACKING: {shards} SHARDS", (20, h-25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
 
-            # --- DATABASE LOGGING ---
             log_event(conn, idx, status, shards)
 
         out.write(frame)
         print(f"   Processed Frame {idx}/{len(frames)}", end='\r')
 
-    conn.commit()
-    conn.close()
     out.release()
     print(f"\n Video Saved: {output_path}")
+
+    # ==========================================
+    # MODULE 4: THE MANAGER'S REPORT (DBMS)
+    # ==========================================
+    print("\n GENERATING INCIDENT REPORT (FROM SQL):")
+    print("-" * 50)
+
+    # Query 1: Find the exact moment of fracture
+    try:
+        query = """
+            SELECT MIN(frame_idx) as fracture_frame, timestamp, risk_score
+            FROM event_logs 
+            WHERE status = 'FRAGMENTED'
+        """
+        df_incident = pd.read_sql_query(query, conn)
+        
+        if df_incident['fracture_frame'][0] is not None:
+            print(f" FRACTURE DETECTED AT FRAME: {df_incident['fracture_frame'][0]}")
+            print(f"   Time of Incident: {df_incident['timestamp'][0]}")
+            print(f"   Risk Score: {df_incident['risk_score'][0]} (CRITICAL)")
+        else:
+            print(" NO FRACTURE DETECTED. SYSTEM STABLE.")
+            
+        print("-" * 50)
+        
+        # Query 2: Summary Stats
+        query_stats = """
+            SELECT status, COUNT(*) as frames, MAX(shard_count) as max_shards
+            FROM event_logs
+            GROUP BY status
+        """
+        print(pd.read_sql_query(query_stats, conn))
+        print("-" * 50)
+        
+    except Exception as e:
+        print(f" SQL Reporting Error: {e}")
+
+    conn.close()
 
 if __name__ == "__main__":
     run_pipeline()
