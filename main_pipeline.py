@@ -22,7 +22,7 @@ import torch
 try:
     from sam2.build_sam import build_sam2_video_predictor
 except ImportError:
-    print("❌ ERROR: SAM 2 not found. Please install via: pip install git+https://github.com/facebookresearch/segment-anything-2.git")
+    print("ERROR: SAM 2 not found. Please install via: pip install git+https://github.com/facebookresearch/segment-anything-2.git")
     sys.exit(1)
 
 # ==========================================
@@ -93,7 +93,7 @@ def generate_synthetic_data(base_dir):
         cnt += 1
     cap.release()
     
-    print(f"   ✅ Data ready in {base_dir}")
+    print(f"   Data ready in {base_dir}")
     return frame_dir
 
 # ==========================================
@@ -187,7 +187,7 @@ def run_pipeline():
 
     conn.commit()
     out.release()
-    print(f"\n✅ Video Saved: {output_path}")
+    print(f"\n Video Saved: {output_path}")
     
     # 6. Generate Report
     print("\n📊 SQL DATABASE REPORT:")
