@@ -1,9 +1,10 @@
-# 👁️ Autonomous Warehouse Perception System (SAM 2 + SQL)
+# Autonomous Warehouse Perception System (SAM 2 + SQL)
 
 > **A hybrid Computer Vision pipeline that gives "Memory" and "Logic" to Foundation Models.**
 
 ![Project Status](https://img.shields.io/badge/Status-Prototype_Complete-green)
 ![Tech Stack](https://img.shields.io/badge/Stack-SAM2_|_OpenCV_|_SQLite-blue)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 ## 📖 The Problem
 Modern Foundation Models like **Meta's SAM 2** are excellent at *seeing* pixels (Segmentation) but lack *understanding* of physical state changes. If a package in a warehouse falls and breaks, SAM 2 sees it as "deforming," not "breaking." It lacks the logic to trigger an alert.
@@ -47,3 +48,28 @@ Automatically generated incident report from the SQL backend:
 🚨 FRACTURE DETECTED AT FRAME: 43
    Time of Incident: 16:33:22.88
    Risk Score: 0.95 (CRITICAL)
+```
+
+### Installation & Usage
+
+1. Clone the Repository
+```text
+   git clone [https://github.com/your-username/warehouse-vision-sam2.git](https://github.com/alfayezahmad/warehouse-vision-sam2.git)
+   cd warehouse-vision-sam2
+```
+
+3. Install Dependencies
+```text
+   pip install torch numpy opencv-python pandas matplotlib
+   pip install git+[https://github.com/facebookresearch/segment-anything-2.git](https://github.com/facebookresearch/segment-anything-2.git)
+```
+
+5. Download Model Weights
+```text
+   wget [https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt]   (https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt)
+```
+
+6. Run the Pipeline
+```text
+   python main_pipeline.py
+```
