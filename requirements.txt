@@ -1,0 +1,8 @@
+torch>=2.0.0
+numpy
+opencv-python
+pandas
+matplotlib
+hydra-core>=1.1
+# Note: SAM 2 must be installed from source:
+# pip install git+https://github.com/facebookresearch/segment-anything-2.git
