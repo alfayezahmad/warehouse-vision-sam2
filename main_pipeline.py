@@ -18,7 +18,7 @@ from datetime import datetime
 from PIL import Image
 import torch
 
-# Try to import SAM 2 (Graceful error if not installed)
+# Try to import SAM 2 
 try:
     from sam2.build_sam import build_sam2_video_predictor
 except ImportError:
@@ -39,7 +39,7 @@ CONFIG = {
 }
 
 # ==========================================
-# MODULE 1: DATA GENERATION (The "Peanut" Strategy)
+# MODULE 1: DATA GENERATION (Only used here for proof-of-concept purpose, you are more than welcome to utilize your own as well)
 # ==========================================
 def generate_synthetic_data(base_dir):
     """
