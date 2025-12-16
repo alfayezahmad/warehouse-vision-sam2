@@ -54,7 +54,7 @@ Automatically generated incident report from the SQL backend:
 
 1. Clone the Repository
 ```text
-   git clone [https://github.com/your-username/warehouse-vision-sam2.git](https://github.com/alfayezahmad/warehouse-vision-sam2.git)
+   git clone [https://github.com/alfayezahmad/warehouse-vision-sam2.git](https://github.com/alfayezahmad/warehouse-vision-sam2.git)
    cd warehouse-vision-sam2
 ```
 
