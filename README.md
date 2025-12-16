@@ -20,7 +20,7 @@ I engineered a wrapper system that treats SAM 2 as a raw sensor and adds a **Det
 ## 🚀 Key Features
 
 * **Zero-Shot Tracking:** Integrates **SAM 2 (Segment Anything Model 2)** to track arbitrary objects without re-training.
-* **State Machine Logic:** Uses `cv2.connectedComponents` to detect topological changes (Splits/Fractures) that pure Deep Learning misses.
+* **State Machine Logic:** Uses `cv2.connectedComponents` to detect topological changes (e.g., Multi-Shard Mitosis events where 1 object splits into 4+ independent fragments (in v2) and Splits/Fractures (in v1)) that pure Deep Learning misses.
 * **"Peanut" Prompting Strategy:** Implemented a novel masking strategy to force the model to track debris fields (multi-part objects) by initializing the tracker with a unified multi-centroid mask.
 * **SQL Telemetry Backend:** A lightweight `sqlite3` integration that logs robot perception data at 30Hz, enabling SQL queries like `"SELECT * FROM logs WHERE status='Critical'"`.
 
