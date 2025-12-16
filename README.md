@@ -40,7 +40,7 @@ I engineered a wrapper system that treats SAM 2 as a raw sensor and adds a **Det
 ### Visual Output
 *The system detects the exact frame where the object splits, switches status from SAFE (Green) to CRITICAL (Red), and logs the event.*
 
-*(Upload your 'Final_System_Output.mp4' converted to a GIF here)*
+![System Demo](assets/warehouse_demo.gif)
 
 ### Database Query Result
 Automatically generated incident report from the SQL backend:
