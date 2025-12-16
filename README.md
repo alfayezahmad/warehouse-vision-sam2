@@ -1,0 +1,1 @@
+# warehouse-vision-sam2
