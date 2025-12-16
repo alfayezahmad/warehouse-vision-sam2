@@ -4,7 +4,7 @@ Autonomous Warehouse Perception System
 A hybrid pipeline integrating Meta SAM 2 (Vision) with OpenCV (Logic) 
 and SQLite (Memory) to detect object fragmentation events.
 
-Author: [Your Name]
+Author: Alfayez Ahmad
 Date: December 2025
 """
 
