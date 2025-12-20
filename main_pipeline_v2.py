@@ -1,13 +1,11 @@
 """
-Autonomous Warehouse Perception System
---------------------------------------
-A hybrid pipeline integrating Meta SAM 2 (Vision) with OpenCV (Logic) 
-and SQLite (Memory) to detect object fragmentation events.
-
-Scenario: "The Big Bang" - Detecting a single object exploding into 4 independent shards.
-
+Project: Autonomous Warehouse Perception System
 Author: Alfayez Ahmad
-Date: December 2025
+Copyright: (c) 2025 Alfayez Ahmad
+License: MIT
+Description: Hybrid pipeline integrating Meta SAM 2 (Vision) with OpenCV (Logic) 
+             and SQLite (Memory) to detect object fragmentation events.
+Scenario: "The Big Bang" - Detecting a single object exploding into 4 independent shards.
 """
 
 import os
@@ -15,7 +13,7 @@ import sys
 import cv2
 import numpy as np
 import sqlite3
-import pandas as pd # Added for reporting
+import pandas as pd
 import torch
 from datetime import datetime
 from PIL import Image
@@ -24,7 +22,7 @@ from PIL import Image
 try:
     from sam2.build_sam import build_sam2_video_predictor
 except ImportError:
-    print(" ERROR: SAM 2 not found. Please install via: pip install git+https://github.com/facebookresearch/segment-anything-2.git")
+    print("[CRITICAL] SAM 2 not found. Please install via: pip install git+https://github.com/facebookresearch/segment-anything-2.git")
     sys.exit(1)
 
 # ==========================================
@@ -48,7 +46,7 @@ def generate_synthetic_data(base_dir):
     Generates a synthetic video of 1 object splitting into 4.
     Uses 'Fused Initialization' to force SAM 2 to track the group parent.
     """
-    print("🎬 Generating Synthetic 'Big Bang' Data (1 -> 4)...")
+    print(f"[INFO] Generating synthetic 'Big Bang' data (1 -> 4 shards)...")
     os.makedirs(base_dir, exist_ok=True)
     frame_dir = os.path.join(base_dir, "frames")
     os.makedirs(frame_dir, exist_ok=True)
@@ -124,11 +122,11 @@ def run_pipeline():
     
     # 2. Download Weights
     if not os.path.exists(CONFIG["model_weight"]):
-        print("⬇️ Downloading SAM 2 weights...")
+        print(f"[INFO] Downloading SAM 2 weights...")
         os.system(f"wget -q https://dl.fbaipublicfiles.com/segment_anything_2/072824/{CONFIG['model_weight']}")
 
     # 3. Load SAM 2
-    print(f"⚙️  Loading Model on {CONFIG['device']}...")
+    print(f"[INFO] Loading Model on {CONFIG['device']}...")
     predictor = build_sam2_video_predictor(CONFIG["model_cfg"], CONFIG["model_weight"], device=CONFIG["device"])
     inference_state = predictor.init_state(video_path=frame_dir)
 
@@ -138,12 +136,13 @@ def run_pipeline():
     predictor.add_new_mask(inference_state, 0, 1, mask.astype(np.float32))
 
     # 5. Processing Loop
-    print(" Running Vision Pipeline...")
+    print("[INFO] Starting Vision Pipeline...")
     output_path = "Final_System_Output.mp4"
     frames = sorted(os.listdir(frame_dir))
     h, w = cv2.imread(f"{frame_dir}/{frames[0]}").shape[:2]
     out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (w, h))
 
+    # Visualization colors for shards
     colors = [(0, 255, 0), (0, 255, 255), (0, 0, 255), (255, 0, 255), (255, 165, 0)]
     kernel = np.ones((5,5), np.uint8)
 
@@ -156,14 +155,16 @@ def run_pipeline():
         if len(logits) > 0:
             mask_pred = (logits[0] > 0.0).cpu().numpy().squeeze().astype(np.uint8)
             
-            # --- LOGIC ---
+            # --- LOGIC LAYER ---
+            # Erosion snaps thin connections to reveal independent components
             eroded = cv2.erode(mask_pred, kernel, iterations=3)
             num_labels, labels = cv2.connectedComponents(eroded)
+            # Filter noise < 50 pixels
             shards = sum(1 for i in range(1, num_labels) if np.sum(labels == i) > 50)
             
             if shards > 1: status = "FRAGMENTED"
 
-            # --- VISUALIZATION ---
+            # --- VISUALIZATION LAYER ---
             found_parts = 0
             for i in range(1, num_labels):
                 if np.sum(labels == i) < 50: continue
@@ -173,14 +174,14 @@ def run_pipeline():
                 overlay[labels == i] = c
                 frame = cv2.addWeighted(frame, 1.0, overlay, 0.7, 0)
                 
-                # ID Tag
+                # ID Tag Logic
                 M = cv2.moments((labels == i).astype(np.uint8))
                 if M["m00"] != 0:
                     cX, cY = int(M["m10"]/M["m00"]), int(M["m01"]/M["m00"])
                     cv2.putText(frame, f"1.{found_parts}", (cX-15, cY+5), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
 
-            # Dashboard
+            # Dashboard Overlay
             cv2.rectangle(frame, (10, h-80), (280, h-10), (0,0,0), -1)
             color = (0, 255, 0) if shards <= 1 else (0, 0, 255)
             cv2.putText(frame, f"STATUS: {status}", (20, h-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
@@ -189,15 +190,15 @@ def run_pipeline():
             log_event(conn, idx, status, shards)
 
         out.write(frame)
-        print(f"   Processed Frame {idx}/{len(frames)}", end='\r')
+        print(f"[INFO] Processed Frame {idx}/{len(frames)}", end='\r')
 
     out.release()
-    print(f"\n Video Saved: {output_path}")
+    print(f"\n[SUCCESS] Video Saved: {output_path}")
 
     # ==========================================
     # MODULE 4: THE MANAGER'S REPORT (DBMS)
     # ==========================================
-    print("\n GENERATING INCIDENT REPORT (FROM SQL):")
+    print("\n[REPORT] GENERATING INCIDENT AUDIT (FROM SQL):")
     print("-" * 50)
 
     # Query 1: Find the exact moment of fracture
@@ -210,11 +211,12 @@ def run_pipeline():
         df_incident = pd.read_sql_query(query, conn)
         
         if df_incident['fracture_frame'][0] is not None:
-            print(f" FRACTURE DETECTED AT FRAME: {df_incident['fracture_frame'][0]}")
-            print(f"   Time of Incident: {df_incident['timestamp'][0]}")
-            print(f"   Risk Score: {df_incident['risk_score'][0]} (CRITICAL)")
+            
+            print(f" [ALERT] FRACTURE DETECTED AT FRAME: {df_incident['fracture_frame'][0]}")
+            print(f"         Time of Incident: {df_incident['timestamp'][0]}")
+            print(f"         Risk Score: {df_incident['risk_score'][0]} (CRITICAL)")
         else:
-            print(" NO FRACTURE DETECTED. SYSTEM STABLE.")
+            print(" [OK] NO FRACTURE DETECTED. SYSTEM STABLE.")
             
         print("-" * 50)
         
@@ -228,7 +230,7 @@ def run_pipeline():
         print("-" * 50)
         
     except Exception as e:
-        print(f" SQL Reporting Error: {e}")
+        print(f"[ERROR] SQL Reporting Error: {e}")
 
     conn.close()
 
