@@ -1,11 +1,10 @@
 """
-Autonomous Warehouse Perception System
---------------------------------------
-A hybrid pipeline integrating Meta SAM 2 (Vision) with OpenCV (Logic) 
-and SQLite (Memory) to detect object fragmentation events.
-
+Project: Autonomous Warehouse Perception System
 Author: Alfayez Ahmad
-Date: December 2025
+Copyright: (c) 2025 Alfayez Ahmad
+License: MIT
+Description: Hybrid pipeline integrating Meta SAM 2 (Vision) with OpenCV (Logic) 
+             and SQLite (Memory) to detect object fragmentation events.
 """
 
 import os
@@ -22,7 +21,7 @@ import torch
 try:
     from sam2.build_sam import build_sam2_video_predictor
 except ImportError:
-    print("ERROR: SAM 2 not found. Please install via: pip install git+https://github.com/facebookresearch/segment-anything-2.git")
+    print("[ERROR] SAM 2 not found. Please install via: pip install git+https://github.com/facebookresearch/segment-anything-2.git")
     sys.exit(1)
 
 # ==========================================
@@ -35,18 +34,18 @@ CONFIG = {
     "db_name": "robot_memory.db",
     "model_weight": "sam2_hiera_large.pt",
     "model_cfg": "sam2_hiera_l.yaml",
-    "device": "cuda" if torch.cuda.is_available() else "cpu" # Auto-detect GPU
+    "device": "cuda" if torch.cuda.is_available() else "cpu"
 }
 
 # ==========================================
-# MODULE 1: DATA GENERATION (Only used here for proof-of-concept purpose, you are more than welcome to utilize your own as well)
+# MODULE 1: DATA GENERATION
 # ==========================================
 def generate_synthetic_data(base_dir):
     """
     Generates a synthetic video of two objects splitting to benchmark the logic.
     Uses the 'Peanut Prompt' strategy to force SAM 2 to track both parts.
     """
-    print("🛠️  Generating Synthetic Data...")
+    print("[INFO] Generating synthetic data...")
     os.makedirs(base_dir, exist_ok=True)
     
     width, height = 640, 480
@@ -74,14 +73,14 @@ def generate_synthetic_data(base_dir):
         
     out.release()
     
-    # Generate Prompt Mask (The "Peanut")
-    # We cover both object positions at Frame 0 to teach SAM 2 they are one entity
+    # Generate Prompt Mask (The "Peanut" Strategy)
+    # We cover both object positions at Frame 0 to establish single-entity tracking
     mask = np.zeros((height, width), dtype=np.uint8)
     cv2.circle(mask, (300, 240), 40, 255, -1)
     cv2.circle(mask, (300, 240), 45, 255, -1) # Slight overlap for safety
     Image.fromarray(mask).save(mask_path)
     
-    # Extract Frames for SAM 2
+    # Extract Frames for SAM 2 ingestion
     frame_dir = os.path.join(base_dir, "frames")
     os.makedirs(frame_dir, exist_ok=True)
     cap = cv2.VideoCapture(video_path)
@@ -93,11 +92,11 @@ def generate_synthetic_data(base_dir):
         cnt += 1
     cap.release()
     
-    print(f"   Data ready in {base_dir}")
+    print(f"[INFO] Data ready in {base_dir}")
     return frame_dir
 
 # ==========================================
-# MODULE 2: DATABASE BACKEND (The Memory)
+# MODULE 2: DATABASE BACKEND
 # ==========================================
 def init_database():
     """Initializes the SQLite schema for incident logging."""
@@ -127,7 +126,7 @@ def log_event(conn, frame_idx, status, parts):
     ''', (now, frame_idx, status, parts, risk))
 
 # ==========================================
-# MODULE 3: MAIN PIPELINE (Vision + Logic)
+# MODULE 3: MAIN PIPELINE
 # ==========================================
 def run_pipeline():
     # 1. Setup
@@ -136,11 +135,11 @@ def run_pipeline():
     
     # 2. Check for Weights
     if not os.path.exists(CONFIG["model_weight"]):
-        print(f"⬇️ Downloading weights to {CONFIG['model_weight']}...")
+        print(f"[INFO] Downloading weights to {CONFIG['model_weight']}...")
         os.system(f"wget -q https://dl.fbaipublicfiles.com/segment_anything_2/072824/{CONFIG['model_weight']}")
 
     # 3. Load SAM 2
-    print(f"⚙️  Loading Model on {CONFIG['device']}...")
+    print(f"[INFO] Loading Model on {CONFIG['device']}...")
     predictor = build_sam2_video_predictor(CONFIG["model_cfg"], CONFIG["model_weight"], device=CONFIG["device"])
     inference_state = predictor.init_state(video_path=frame_dir)
 
@@ -150,7 +149,7 @@ def run_pipeline():
     predictor.add_new_mask(inference_state, 0, 1, mask.astype(np.float32))
 
     # 5. Processing Loop
-    print("🚀 Starting Tracking Pipeline...")
+    print("[INFO] Starting tracking pipeline...")
     output_path = "output_result.mp4"
     frames = sorted(os.listdir(frame_dir))
     h, w = cv2.imread(f"{frame_dir}/{frames[0]}").shape[:2]
@@ -163,34 +162,34 @@ def run_pipeline():
         parts = 1
         
         if len(logits) > 0:
-            # --- VISION (The Eyes) ---
+            # --- Vision Processing Layer ---
             mask_pred = (logits[0] > 0.0).cpu().numpy().squeeze().astype(np.uint8)
             
-            # --- LOGIC (The Brain) ---
+            # --- Logic Layer (Topology Analysis) ---
             num_labels, labels = cv2.connectedComponents(mask_pred)
-            # Filter noise < 50 pixels
+            # Filter noise < 50 pixels to avoid false positives
             parts = sum(1 for i in range(1, num_labels) if np.sum(labels == i) > 50)
             
             if parts > 1: status = "Critical"
 
-            # --- VISUALS ---
+            # --- Visualization Layer ---
             frame[mask_pred > 0] = [0, 0, 255] # Red Overlay
             color = (0, 255, 0) if status == "Safe" else (0, 0, 255)
             cv2.putText(frame, f"STATUS: {status}", (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
             cv2.putText(frame, f"PARTS: {parts}", (20, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
             
-            # --- MEMORY (The Database) ---
+            # --- Telemetry Layer ---
             log_event(conn, idx, status, parts)
 
         out.write(frame)
-        print(f"   Processed Frame {idx}/{len(frames)} | Status: {status}", end='\r')
+        print(f"[INFO] Processed Frame {idx}/{len(frames)} | Status: {status}", end='\r')
 
     conn.commit()
     out.release()
-    print(f"\n Video Saved: {output_path}")
+    print(f"\n[INFO] Video saved: {output_path}")
     
     # 6. Generate Report
-    print("\n📊 SQL DATABASE REPORT:")
+    print("\n[REPORT] SQL Database Summary:")
     df = pd.read_sql_query("SELECT status, COUNT(*) as frames, AVG(risk_score) as risk FROM event_logs GROUP BY status", conn)
     print(df)
     conn.close()
