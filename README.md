@@ -6,10 +6,10 @@
 ![Tech Stack](https://img.shields.io/badge/Stack-SAM2_|_OpenCV_|_SQLite-blue)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-## 📖 The Problem
+## The Problem Statement
 Modern Foundation Models like **Meta's SAM 2** are excellent at *seeing* pixels (Segmentation) but lack *understanding* of physical state changes. If a package in a warehouse falls and breaks, SAM 2 sees it as "deforming," not "breaking." It lacks the logic to trigger an alert.
 
-## 💡 The Solution
+## The Solution
 I engineered a wrapper system that treats SAM 2 as a raw sensor and adds a **Deterministic Logic Layer** on top.
 1.  **Vision (SAM 2):** Tracks the object's pixel mask frame-by-frame.
 2.  **Logic (OpenCV):** Analyzes the mask topology in real-time. If the mask splits into distinct, disconnected islands, it triggers a **"FRAGMENTATION EVENT."**
@@ -17,7 +17,31 @@ I engineered a wrapper system that treats SAM 2 as a raw sensor and adds a **Det
 
 ---
 
-## 🚀 Key Features
+## System Architecture
+```mermaid
+graph TD
+    A[Synthetic Video Input] -->|Frames| B(Vision Layer: Meta SAM 2)
+    
+    subgraph Pipeline
+        B -->|Raw Segmentation Mask| C{Logic Layer: OpenCV}
+        C -->|1. Erosion<br>2. Connected Components| D[Topology Evaluation]
+    end
+    
+    D -->|Shard Count = 1| E[State: STABLE]
+    D -->|Shard Count > 1| F[State: FRAGMENTED]
+    
+    E --> G(Telemetry Manager)
+    F --> G(Telemetry Manager)
+    
+    subgraph Storage & Output
+        G -->|SQL INSERT| H[(SQLite Database)]
+        G -->|Draw HUD & Bounding| I[Annotated Video Output]
+    end
+```
+
+---
+
+## Key Features
 
 * **Zero-Shot Tracking:** Integrates **SAM 2 (Segment Anything Model 2)** to track arbitrary objects without re-training.
 * **State Machine Logic:** Uses `cv2.connectedComponents` to detect topological changes (e.g., Multi-Shard Mitosis events where 1 object splits into 4+ independent fragments (in v2) and Splits/Fractures (in v1)) that pure Deep Learning misses.
@@ -26,7 +50,7 @@ I engineered a wrapper system that treats SAM 2 as a raw sensor and adds a **Det
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 * **Core Logic:** Python 3.10
 * **AI/ML:** PyTorch, Meta SAM 2
@@ -35,7 +59,7 @@ I engineered a wrapper system that treats SAM 2 as a raw sensor and adds a **Det
 
 ---
 
-## 📊 Performance & Results
+## Performance & Results
 
 ### Visual Output
 *The system detects the exact frame where the object splits, switches status from SAFE (Green) to CRITICAL (Red), and logs the event.*
@@ -45,31 +69,31 @@ I engineered a wrapper system that treats SAM 2 as a raw sensor and adds a **Det
 ### Database Query Result
 Automatically generated incident report from the SQL backend:
 ```text
-🚨 FRACTURE DETECTED AT FRAME: 43
+  FRACTURE DETECTED AT FRAME: 43
    Time of Incident: 16:33:22.88
    Risk Score: 0.95 (CRITICAL)
 ```
 
 ### Installation & Usage
 
-1. Clone the Repository
-```text
-   git clone [https://github.com/alfayezahmad/warehouse-vision-sam2.git](https://github.com/alfayezahmad/warehouse-vision-sam2.git)
-   cd warehouse-vision-sam2
+1. **Clone the Repository**
+```bash
+git clone [https://github.com/alfayezahmad/warehouse-vision-sam2.git](https://github.com/alfayezahmad/warehouse-vision-sam2.git)
+cd warehouse-vision-sam2
 ```
 
-3. Install Dependencies
-```text
-   pip install torch numpy opencv-python pandas matplotlib
-   pip install git+[https://github.com/facebookresearch/segment-anything-2.git](https://github.com/facebookresearch/segment-anything-2.git)
+2. **Install Dependencies**
+```bash
+pip install torch numpy opencv-python pandas matplotlib
+pip install git+[https://github.com/facebookresearch/segment-anything-2.git](https://github.com/facebookresearch/segment-anything-2.git)
 ```
 
-5. Download Model Weights
-```text
-   wget [https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt]   (https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt)
+3. **Download Model Weights**
+```bash
+wget [https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt](https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt)
 ```
 
-6. Run the Pipeline
-```text
-   python main_pipeline.py
+4. **Run the Pipeline**
+```bash
+python main_pipeline.py
 ```
