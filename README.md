@@ -74,26 +74,41 @@ Automatically generated incident report from the SQL backend:
    Risk Score: 0.95 (CRITICAL)
 ```
 
-### Installation & Usage
+### Cloud-Native Deployment & Observability
+In a real warehouse, this system would run as a Kubernetes DaemonSet on edge nodes equipped with GPUs.
 
-1. **Clone the Repository**
-```bash
-git clone [https://github.com/alfayezahmad/warehouse-vision-sam2.git](https://github.com/alfayezahmad/warehouse-vision-sam2.git)
-cd warehouse-vision-sam2
-```
+The integration of SQLite isn't just for storage; it transforms raw video into a queryable telemetry stream. In a production environment, this local DB can be scraped by a Prometheus Exporter to trigger cluster-wide alerts when a `FRAGMENTATION_EVENT` is detected.
 
-2. **Install Dependencies**
+*Running with Docker*
 ```bash
-pip install torch numpy opencv-python pandas matplotlib
-pip install git+[https://github.com/facebookresearch/segment-anything-2.git](https://github.com/facebookresearch/segment-anything-2.git)
-```
+# 1. Build the high-performance vision image
+docker build -t warehouse-sam2 .
 
-3. **Download Model Weights**
-```bash
-wget [https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt](https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt)
+# 2. Run with GPU support and mount a local folder for the video/DB output
+docker run --gpus all \
+  -v $(pwd)/output:/app/data \
+  warehouse-sam2
 ```
-
-4. **Run the Pipeline**
-```bash
-python main_pipeline.py
-```
+### Local Installation & Usage
+1. Clone the Repository
+   ```bash
+   git clone [https://github.com/alfayezahmad/warehouse-vision-sam2.git](https://github.com/alfayezahmad/warehouse-vision-sam2.git)
+   cd warehouse-vision-sam2
+   ```
+2. Install Dependencies
+   ```bash
+   pip install -r requirements.txt
+   pip install git+[https://github.com/facebookresearch/segment-anything-2.git](https://github.com/facebookresearch/segment-anything-2.git)
+   ```
+3. Download Model Weights
+   ```bash
+   wget [https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt](https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt)
+   ```
+4. Run the Pipeline
+   ```bash
+   python main_pipeline_v2.py
+   ```
+### Roadmap: From Edge to Cluster
+- [ ] **Protobuf/gRPC Interface:** Replace SQLite with a gRPC stream to send real-time shard coordinates to a central robot controller.
+- [ ] **OpenTelemetry Integration:** Map vision events to OTel spans to trace the "perception-to-action" latency.
+- [ ] **TensorRT Optimization:** Quantize the SAM 2 weights for faster inference on NVIDIA Jetson edge devices.
