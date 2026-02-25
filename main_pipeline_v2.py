@@ -1,7 +1,7 @@
 """
 Project: Autonomous Warehouse Perception System
 Author: Alfayez Ahmad
-Copyright: (c) 2025 Alfayez Ahmad
+Copyright: (c) 2026 Alfayez Ahmad
 License: MIT
 Description: Hybrid pipeline integrating Meta SAM 2 (Vision) with OpenCV (Logic) 
              and SQLite (Memory) to detect object fragmentation events.
@@ -26,14 +26,15 @@ except ImportError:
     sys.exit(1)
 
 # ==========================================
-# CONFIGURATION
+# CONFIGURATION (Cloud-Native Environment Variables)
 # ==========================================
 CONFIG = {
-    "project_dir": "warehouse_data",
+    "project_dir": os.environ.get("DATA_DIR", "warehouse_data"),
     "video_name": "mitosis_simulation.mp4",
     "mask_name": "mask.png",
-    "db_name": "robot_memory.db",
-    "model_weight": "sam2_hiera_large.pt",
+    "db_name": os.environ.get("DB_PATH", "warehouse_data/robot_memory.db"),
+    "output_path": os.environ.get("OUTPUT_PATH", "warehouse_data/Final_System_Output.mp4"),
+    "model_weight": os.environ.get("MODEL_WEIGHT_PATH", "sam2_hiera_large.pt"),
     "model_cfg": "sam2_hiera_l.yaml",
     "device": "cuda" if torch.cuda.is_available() else "cpu"
 }
@@ -87,6 +88,8 @@ def generate_synthetic_data(base_dir):
 # ==========================================
 def init_database():
     """Initializes the SQLite schema for incident logging."""
+    # Ensure directory exists before connecting
+    os.makedirs(os.path.dirname(CONFIG["db_name"]), exist_ok=True)
     conn = sqlite3.connect(CONFIG["db_name"])
     cursor = conn.cursor()
     cursor.execute('DROP TABLE IF EXISTS event_logs')
@@ -111,6 +114,7 @@ def log_event(conn, frame_idx, status, shards):
         INSERT INTO event_logs (timestamp, frame_idx, status, shard_count, risk_score)
         VALUES (?, ?, ?, ?, ?)
     ''', (now, frame_idx, status, shards, risk))
+    conn.commit()
 
 # ==========================================
 # MODULE 3: MAIN PIPELINE (Vision + Logic)
@@ -122,8 +126,8 @@ def run_pipeline():
     
     # 2. Download Weights
     if not os.path.exists(CONFIG["model_weight"]):
-        print(f"[INFO] Downloading SAM 2 weights...")
-        os.system(f"wget -q https://dl.fbaipublicfiles.com/segment_anything_2/072824/{CONFIG['model_weight']}")
+        print(f"[INFO] Downloading SAM 2 weights to {CONFIG['model_weight']}...")
+        os.system(f"wget -q -O {CONFIG['model_weight']} https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt")
 
     # 3. Load SAM 2
     print(f"[INFO] Loading Model on {CONFIG['device']}...")
@@ -137,10 +141,9 @@ def run_pipeline():
 
     # 5. Processing Loop
     print("[INFO] Starting Vision Pipeline...")
-    output_path = "Final_System_Output.mp4"
     frames = sorted(os.listdir(frame_dir))
     h, w = cv2.imread(f"{frame_dir}/{frames[0]}").shape[:2]
-    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (w, h))
+    out = cv2.VideoWriter(CONFIG["output_path"], cv2.VideoWriter_fourcc(*'mp4v'), 30, (w, h))
 
     # Visualization colors for shards
     colors = [(0, 255, 0), (0, 255, 255), (0, 0, 255), (255, 0, 255), (255, 165, 0)]
@@ -193,7 +196,7 @@ def run_pipeline():
         print(f"[INFO] Processed Frame {idx}/{len(frames)}", end='\r')
 
     out.release()
-    print(f"\n[SUCCESS] Video Saved: {output_path}")
+    print(f"\n[SUCCESS] Video Saved: {CONFIG['output_path']}")
 
     # ==========================================
     # MODULE 4: THE MANAGER'S REPORT (DBMS)
